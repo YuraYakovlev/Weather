@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hours">ЧАСЫ</string>
+    <string name="days">ДНИ</string>
+    <string name="ok">ОК</string>
+    <string name="cancel">ОТМЕНА</string>
+    <string name="city_name">Название города</string>
+    <string name="enable_location_title">Включить местоположение?</string>
+    <string name="enable_location_message">Местоположение отключено, вы хотите включить местоположение?</string>
+</resources>

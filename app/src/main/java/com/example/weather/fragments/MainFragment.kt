@@ -1,12 +1,18 @@
 package com.example.weather.fragments
 
 import android.Manifest
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.location.LocationManager
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.Animation
+import android.view.animation.AnimationUtils
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -17,13 +23,16 @@ import androidx.fragment.app.activityViewModels
 import com.android.volley.Request
 import com.android.volley.toolbox.StringRequest
 import com.android.volley.toolbox.Volley
+import com.example.weather.BounceInterpolator
+import com.example.weather.DialogManager
 import com.example.weather.MainViewModel
+import com.example.weather.R
 import com.example.weather.adapters.VpAdapter
 import com.example.weather.adapters.WeatherModel
 import com.example.weather.databinding.FragmentMainBinding
 import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.android.material.tabs.TabLayoutMediator
 import com.squareup.picasso.Picasso
@@ -37,12 +46,10 @@ class MainFragment : Fragment() {
         HoursFragment.newInstance(),
         DaysFragment.newInstance()
     )
-    private val tLIst = listOf(
-        "HOURS",
-        "DAYS"
-    )
+    private val animation: Animation by lazy { AnimationUtils.loadAnimation(context, R.anim.animation) }
     private lateinit var plauncher: ActivityResultLauncher<String>
     private lateinit var binding: FragmentMainBinding
+    private lateinit var loc: String
     private val model: MainViewModel by activityViewModels()
 
     override fun onCreateView(
@@ -55,23 +62,59 @@ class MainFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        val tLIst = listOf(
+            requireContext().getString(R.string.hours),
+            requireContext().getString(R.string.days),
+        )
         checkPermission()
-        init()
+        init(tLIst)
         updateCurrentCard()
-        getLocation()
     }
 
-    private fun init() = with(binding) {
+    override fun onResume() {
+        super.onResume()
+        checkLocation()
+    }
+
+    private fun init(list: List<String>) = with(binding) {
         fLocationClient = LocationServices.getFusedLocationProviderClient(requireContext())
         val adapter = VpAdapter(activity as FragmentActivity, fList)
         vp.adapter = adapter
         TabLayoutMediator(tabLayout, vp) { tab, pos ->
-            tab.text = tLIst[pos]
+            tab.text = list[pos]
         }.attach()
         ibSync.setOnClickListener {
+            dipTapButton()
+            ibSync.startAnimation(animation)
             tabLayout.selectTab(tabLayout.getTabAt(0))
-            getLocation()
+            checkLocation()
         }
+        ibSearch.setOnClickListener {
+            dipTapButton()
+            ibSearch.startAnimation(animation)
+            DialogManager.searchByNameDialog(requireContext(), object : DialogManager.Listener {
+                override fun onClick(name: String?) {
+                    name?.let { it1 -> requestWeatherData(it1) }
+                }
+            })
+        }
+    }
+
+    private fun checkLocation() = with(binding) {
+        if (isLocationEnabled()) {
+            getLocation()
+        } else {
+            DialogManager.locationSettingsDialog(requireContext(), object : DialogManager.Listener {
+                override fun onClick(name: String?) {
+                    startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+                }
+            })
+        }
+    }
+
+    private fun isLocationEnabled(): Boolean {
+        val lm = activity?.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        return lm.isProviderEnabled(LocationManager.GPS_PROVIDER)
     }
 
     private fun getLocation() {
@@ -87,9 +130,10 @@ class MainFragment : Fragment() {
             return
         }
         fLocationClient
-            .getCurrentLocation(LocationRequest.PRIORITY_HIGH_ACCURACY, ct.token)
+            .getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, ct.token)
             .addOnCompleteListener {
-                requestWeatherData("${it.result.latitude},${it.result.longitude}")
+                loc = "${it.result.latitude},${it.result.longitude}"
+                requestWeatherData(loc)
             }
     }
 
@@ -133,6 +177,7 @@ class MainFragment : Fragment() {
             url,
             { result ->
                 parseWeatherData(result)
+                Log.d("MyLog", result)
             },
             { error ->
                 Log.d("MyLog", "Error: $error")
@@ -184,6 +229,11 @@ class MainFragment : Fragment() {
             weatherItem.hours
         )
         model.liveDataCurrent.value = item
+    }
+
+    private fun dipTapButton() {
+        val interpolator = BounceInterpolator(0.1, 100.0)
+        animation.interpolator = interpolator
     }
 
     companion object {

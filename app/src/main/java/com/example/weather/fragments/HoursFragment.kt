@@ -11,7 +11,6 @@ import com.example.weather.MainViewModel
 import com.example.weather.adapters.WeatherAdapter
 import com.example.weather.adapters.WeatherModel
 import com.example.weather.databinding.FragmentHoursBinding
-import com.squareup.picasso.Picasso
 import org.json.JSONArray
 import org.json.JSONObject
 
